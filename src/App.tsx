@@ -43,10 +43,11 @@ const QUIZ_QUESTION_LIMIT = 10;
 const parseHash = (): Route => {
   const hash = window.location.hash.replace(/^#\/?/, '');
   const parts = hash.split('/').filter(Boolean);
+  const availableModes: PracticeMode[] = ['practice', 'wrongReview'];
 
   if (parts[0] === 'categories') {
     const mode = parts[1] as PracticeMode;
-    return ['practice', 'test', 'wrongReview'].includes(mode)
+    return availableModes.includes(mode)
       ? { page: 'categories', mode }
       : { page: 'home' };
   }
@@ -54,7 +55,7 @@ const parseHash = (): Route => {
   if (parts[0] === 'quiz') {
     const mode = parts[1] as PracticeMode;
     const category = parts[2] as QuestionCategory;
-    return ['practice', 'test', 'wrongReview'].includes(mode) && categories.includes(category)
+    return availableModes.includes(mode) && categories.includes(category)
       ? { page: 'quiz', mode, category }
       : { page: 'home' };
   }
@@ -83,6 +84,7 @@ const formatTime = (iso: string) =>
   }).format(new Date(iso));
 
 const getQuestionDisplayAnswer = (question: Question) => question.displayAnswer ?? question.correctAnswer;
+const getModeLabel = (mode: string) => modeLabels[mode as PracticeMode] ?? '历史记录';
 
 const getActiveWrongQuestionsByCategory = (category: QuestionCategory) =>
   getWrongQuestions()
@@ -178,11 +180,6 @@ const HomePage = () => {
           <span>练习模式</span>
           <ChevronRight size={18} />
         </button>
-        <button type="button" onClick={() => navigate('/categories/test')}>
-          <Trophy size={22} />
-          <span>测验模式</span>
-          <ChevronRight size={18} />
-        </button>
         <button type="button" onClick={() => navigate('/categories/wrongReview')}>
           <RotateCcw size={22} />
           <span>错题复习</span>
@@ -203,7 +200,7 @@ const CategoryPage = ({ mode }: { mode: PracticeMode }) => {
 
   return (
     <main className="screen">
-      <Header title={modeLabels[mode]} onBack={() => navigate('/')} />
+      <Header title={getModeLabel(mode)} onBack={() => navigate('/')} />
 
       <div className="categoryList">
         {categories.map((category) => {
@@ -431,8 +428,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
   }
 
   if (!started) {
-    const startLabel =
-      mode === 'practice' ? '开始练习' : mode === 'test' ? '开始测验' : '开始错题复习';
+    const startLabel = mode === 'practice' ? '开始练习' : '开始错题复习';
 
     return (
       <main className="screen">
@@ -441,7 +437,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
           <BookOpen size={36} />
           <h2>{startLabel}</h2>
           <div className="finishStats">
-            <span>{modeLabels[mode]}</span>
+            <span>{getModeLabel(mode)}</span>
             <span>本次 {Math.min(sourceQuestions.length, QUIZ_QUESTION_LIMIT)} 题</span>
           </div>
         </section>
@@ -459,7 +455,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
     <main className="screen quizScreen">
       <Header title={categoryLabels[category]} onBack={() => navigate(`/categories/${mode}`)} />
       <section className="progressLine">
-        <span>{modeLabels[mode]}</span>
+        <span>{getModeLabel(mode)}</span>
         <strong>{index + 1}/{queue.length}</strong>
       </section>
 
@@ -533,7 +529,7 @@ const RecordsPage = () => {
               </div>
               <div className="recordMeta">
                 <span>{categoryLabels[session.category]}</span>
-                <span>{modeLabels[session.mode]}</span>
+                <span>{getModeLabel(session.mode)}</span>
               </div>
               <div className="recordNumbers">
                 <span>答题 {session.total}</span>
@@ -566,7 +562,7 @@ const RecordDetailPage = ({ id }: { id: string }) => {
       <section className="detailSummary">
         <h2>{categoryLabels[session.category]}</h2>
         <p>
-          {modeLabels[session.mode]} · {formatTime(session.startedAt)}
+          {getModeLabel(session.mode)} · {formatTime(session.startedAt)}
         </p>
         <div>
           <span>答题 {session.total}</span>

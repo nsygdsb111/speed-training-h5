@@ -1,6 +1,6 @@
 export type QuestionCategory = 'squares' | 'powers' | 'percents';
 
-export type PracticeMode = 'practice' | 'test' | 'wrongReview';
+export type PracticeMode = 'practice' | 'wrongReview';
 
 export interface Question {
   id: string;

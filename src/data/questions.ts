@@ -8,7 +8,6 @@ export const categoryLabels: Record<QuestionCategory, string> = {
 
 export const modeLabels: Record<PracticeMode, string> = {
   practice: '练习模式',
-  test: '测验模式',
   wrongReview: '错题复习',
 };
 

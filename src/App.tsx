@@ -204,18 +204,10 @@ const CategoryPage = ({ mode }: { mode: PracticeMode }) => {
   return (
     <main className="screen">
       <Header title={modeLabels[mode]} onBack={() => navigate('/')} />
-      <section className="sectionIntro">
-        <p>每次随机练习 10 题；未清除的错题会优先混入，连续做对两遍后回到普通轮转。</p>
-      </section>
 
       <div className="categoryList">
         {categories.map((category) => {
-          const total = questionsByCategory[category].length;
           const wrongCount = wrongQuestions.filter((item) => item.category === category).length;
-          const count =
-            mode === 'wrongReview'
-              ? Math.min(wrongCount, QUIZ_QUESTION_LIMIT)
-              : Math.min(total, QUIZ_QUESTION_LIMIT);
 
           return (
             <button
@@ -226,7 +218,7 @@ const CategoryPage = ({ mode }: { mode: PracticeMode }) => {
             >
               <div>
                 <strong>{categoryLabels[category]}</strong>
-                <span>{mode === 'wrongReview' ? `本次最多 ${count} 道错题` : `本次 ${count} 题`}</span>
+                {mode === 'wrongReview' && <span>错题 {wrongCount} 道</span>}
               </div>
               <ChevronRight size={18} />
             </button>

@@ -11,8 +11,8 @@ export const modeLabels: Record<PracticeMode, string> = {
   wrongReview: '错题复习',
 };
 
-const squareQuestions: Question[] = Array.from({ length: 30 }, (_, index) => {
-  const value = index + 1;
+const squareQuestions: Question[] = Array.from({ length: 20 }, (_, index) => {
+  const value = index + 11;
   return {
     id: `square-${value}`,
     category: 'squares',

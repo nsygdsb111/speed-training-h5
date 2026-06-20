@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
+import { NumericKeypad } from './components/NumericKeypad';
 import { categoryLabels, getQuestionById, modeLabels, questionsByCategory } from './data/questions';
 import type { AnswerRecord, PracticeMode, PracticeSession, Question, QuestionCategory } from './types';
 import { checkAnswer } from './utils/answer';
@@ -73,6 +74,28 @@ const parseHash = (): Route => {
 
 const navigate = (path: string) => {
   window.location.hash = path;
+};
+
+const useMobileKeypad = () => {
+  const getIsMobileKeypad = () =>
+    window.matchMedia('(max-width: 768px), (hover: none) and (pointer: coarse)').matches;
+  const [isMobileKeypad, setIsMobileKeypad] = useState(getIsMobileKeypad);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 768px), (hover: none) and (pointer: coarse)');
+    const update = () => setIsMobileKeypad(media.matches);
+
+    update();
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+      return () => media.removeEventListener('change', update);
+    }
+
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, []);
+
+  return isMobileKeypad;
 };
 
 const formatTime = (iso: string) =>
@@ -239,6 +262,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
   const [summary, setSummary] = useState<PracticeSession | null>(null);
+  const isMobileKeypad = useMobileKeypad();
 
   const sourceQuestions = useMemo(() => {
     if (mode === 'wrongReview') {
@@ -339,9 +363,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
     resetQuestionState();
   };
 
-  const submitAnswer = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
+  const handleSubmitAnswer = () => {
     if (!currentQuestion || !sessionRef.current || submitted || answer.trim() === '') {
       return;
     }
@@ -373,6 +395,38 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
     setFeedback('wrong');
     setSubmitted(true);
     setSummary(updatedSession ?? null);
+  };
+
+  const submitAnswer = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    handleSubmitAnswer();
+  };
+
+  const inputKeypadValue = (value: string) => {
+    if (submitted) {
+      return;
+    }
+
+    setAnswer((current) => `${current}${value}`);
+    focusAnswerInput(0);
+  };
+
+  const backspaceAnswer = () => {
+    if (submitted) {
+      return;
+    }
+
+    setAnswer((current) => current.slice(0, -1));
+    focusAnswerInput(0);
+  };
+
+  const clearAnswer = () => {
+    if (submitted) {
+      return;
+    }
+
+    setAnswer('');
+    focusAnswerInput(0);
   };
 
   if (finished) {
@@ -475,14 +529,26 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
           inputMode="decimal"
           enterKeyHint="done"
           autoComplete="off"
+          readOnly={isMobileKeypad}
           disabled={submitted}
           placeholder="输入答案"
         />
-        <button type="submit" disabled={submitted || answer.trim() === ''}>
+        <button className="answerSubmitButton" type="submit" disabled={submitted || answer.trim() === ''}>
           <CheckCircle2 size={18} />
           提交答案
         </button>
       </form>
+
+      {isMobileKeypad && !submitted && (
+        <NumericKeypad
+          disabled={submitted}
+          submitDisabled={submitted || answer.trim() === ''}
+          onInput={inputKeypadValue}
+          onBackspace={backspaceAnswer}
+          onClear={clearAnswer}
+          onSubmit={handleSubmitAnswer}
+        />
+      )}
 
       {feedback && (
         <section className={`feedback ${feedback}`}>

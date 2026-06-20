@@ -18,6 +18,31 @@
   --red: #b91c1c;
   --blue: #2563eb;
   --amber: #b45309;
+  --keypad-bg: #ffffff;
+  --keypad-border: #e5e7eb;
+  --keypad-shadow: rgba(15, 23, 42, 0.08);
+  --keypad-key-bg: #f1f5f9;
+  --keypad-key-text: #0f172a;
+  --keypad-key-active-bg: #dbeafe;
+  --keypad-action-bg: #e0ecff;
+  --keypad-action-text: #2563eb;
+  --keypad-submit-bg: #2563eb;
+  --keypad-submit-text: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --keypad-bg: #111827;
+    --keypad-border: #374151;
+    --keypad-shadow: rgba(0, 0, 0, 0.35);
+    --keypad-key-bg: #1f2937;
+    --keypad-key-text: #f9fafb;
+    --keypad-key-active-bg: #374151;
+    --keypad-action-bg: #26364f;
+    --keypad-action-text: #93c5fd;
+    --keypad-submit-bg: #3b82f6;
+    --keypad-submit-text: #ffffff;
+  }
 }
 
 body {
@@ -298,6 +323,61 @@ p {
   background: #e2e8f0;
 }
 
+.numeric-keypad {
+  display: none;
+}
+
+.numeric-keypad-grid {
+  max-width: 430px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.keypad-button {
+  display: flex;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  color: var(--keypad-key-text);
+  background: var(--keypad-key-bg);
+  border: none;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: 700;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+.keypad-button:active {
+  background: var(--keypad-key-active-bg);
+  transform: scale(0.97);
+}
+
+.keypad-button:disabled {
+  opacity: 0.55;
+}
+
+.keypad-button.action {
+  color: var(--keypad-action-text);
+  background: var(--keypad-action-bg);
+  font-size: 16px;
+}
+
+.keypad-button.backspace {
+  color: var(--keypad-action-text);
+  background: var(--keypad-action-bg);
+}
+
+.keypad-button.submit {
+  grid-column: span 2;
+  color: var(--keypad-submit-text);
+  background: var(--keypad-submit-bg);
+  font-size: 18px;
+}
+
 .feedback {
   display: flex;
   align-items: flex-start;
@@ -506,5 +586,28 @@ p {
 
   .statsBand strong {
     font-size: 19px;
+  }
+}
+
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  .quizScreen {
+    padding-bottom: calc(260px + env(safe-area-inset-bottom));
+  }
+
+  .answerSubmitButton {
+    display: none !important;
+  }
+
+  .numeric-keypad {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    display: block;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--keypad-bg);
+    border-top: 1px solid var(--keypad-border);
+    box-shadow: 0 -8px 24px var(--keypad-shadow);
   }
 }

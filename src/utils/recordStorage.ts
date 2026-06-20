@@ -10,6 +10,7 @@ import type {
 export const STATS_KEY = 'speed_training_stats';
 export const WRONG_QUESTIONS_KEY = 'speed_training_wrong_questions';
 export const SESSIONS_KEY = 'speed_training_sessions';
+const BACKUP_KEY = 'speed_training_backup';
 
 const defaultStats: TrainingStats = {
   total: 0,
@@ -32,14 +33,45 @@ const writeJson = <T>(key: string, value: T) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
+interface StorageBackup {
+  stats: TrainingStats;
+  wrongQuestions: WrongQuestionRecord[];
+  sessions: PracticeSession[];
+}
+
+const readBackup = (): Partial<StorageBackup> => readJson<Partial<StorageBackup>>(BACKUP_KEY, {});
+
+const writeBackup = (partial: Partial<StorageBackup>) => {
+  writeJson(BACKUP_KEY, { ...readBackup(), ...partial });
+};
+
+const normalizeWrongQuestion = (record: WrongQuestionRecord): WrongQuestionRecord => ({
+  ...record,
+  reviewCorrectCount: record.reviewCorrectCount ?? 0,
+});
+
+export const isPersistentStorageAvailable = () => {
+  try {
+    const key = 'speed_training_storage_test';
+    localStorage.setItem(key, '1');
+    localStorage.removeItem(key);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 const createId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 const calculateAccuracy = (correct: number, total: number) =>
   total === 0 ? 0 : Math.round((correct / total) * 10000) / 100;
 
-export const getTrainingStats = (): TrainingStats => readJson(STATS_KEY, defaultStats);
+export const getTrainingStats = (): TrainingStats => readJson(STATS_KEY, readBackup().stats ?? defaultStats);
 
-export const saveTrainingStats = (stats: TrainingStats) => writeJson(STATS_KEY, stats);
+export const saveTrainingStats = (stats: TrainingStats) => {
+  writeJson(STATS_KEY, stats);
+  writeBackup({ stats });
+};
 
 export const updateStatsWithAnswer = (isCorrect: boolean) => {
   const current = getTrainingStats();
@@ -55,10 +87,14 @@ export const updateStatsWithAnswer = (isCorrect: boolean) => {
   return next;
 };
 
-export const getWrongQuestions = (): WrongQuestionRecord[] => readJson(WRONG_QUESTIONS_KEY, []);
+export const getWrongQuestions = (): WrongQuestionRecord[] =>
+  readJson(WRONG_QUESTIONS_KEY, readBackup().wrongQuestions ?? []).map(normalizeWrongQuestion);
 
-export const saveWrongQuestions = (questions: WrongQuestionRecord[]) =>
-  writeJson(WRONG_QUESTIONS_KEY, questions);
+export const saveWrongQuestions = (questions: WrongQuestionRecord[]) => {
+  const normalizedQuestions = questions.map(normalizeWrongQuestion);
+  writeJson(WRONG_QUESTIONS_KEY, normalizedQuestions);
+  writeBackup({ wrongQuestions: normalizedQuestions });
+};
 
 export const addWrongQuestion = (answer: AnswerRecord) => {
   const records = getWrongQuestions();
@@ -66,6 +102,7 @@ export const addWrongQuestion = (answer: AnswerRecord) => {
 
   if (existing) {
     existing.wrongCount += 1;
+    existing.reviewCorrectCount = 0;
     existing.lastUserAnswer = answer.userAnswer;
     existing.lastWrongAt = answer.answeredAt;
     saveWrongQuestions(records);
@@ -79,6 +116,7 @@ export const addWrongQuestion = (answer: AnswerRecord) => {
       correctAnswer: answer.correctAnswer,
       category: answer.category,
       wrongCount: 1,
+      reviewCorrectCount: 0,
       lastUserAnswer: answer.userAnswer,
       lastWrongAt: answer.answeredAt,
     },
@@ -90,9 +128,31 @@ export const removeWrongQuestion = (questionId: string) => {
   saveWrongQuestions(getWrongQuestions().filter((item) => item.questionId !== questionId));
 };
 
-export const getPracticeSessions = (): PracticeSession[] => readJson(SESSIONS_KEY, []);
+export const markWrongQuestionCorrect = (questionId: string) => {
+  const records = getWrongQuestions();
+  const existing = records.find((item) => item.questionId === questionId);
 
-export const savePracticeSessions = (sessions: PracticeSession[]) => writeJson(SESSIONS_KEY, sessions);
+  if (!existing) {
+    return;
+  }
+
+  existing.reviewCorrectCount = (existing.reviewCorrectCount ?? 0) + 1;
+
+  if (existing.reviewCorrectCount >= 2) {
+    removeWrongQuestion(questionId);
+    return;
+  }
+
+  saveWrongQuestions(records);
+};
+
+export const getPracticeSessions = (): PracticeSession[] =>
+  readJson(SESSIONS_KEY, readBackup().sessions ?? []);
+
+export const savePracticeSessions = (sessions: PracticeSession[]) => {
+  writeJson(SESSIONS_KEY, sessions);
+  writeBackup({ sessions });
+};
 
 export const createPracticeSession = (
   category: QuestionCategory,

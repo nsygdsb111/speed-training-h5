@@ -115,6 +115,16 @@ p {
   font-size: 12px;
 }
 
+.storageWarning {
+  padding: 12px 14px;
+  color: var(--red);
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .actionList,
 .categoryList,
 .recordList,

@@ -49,6 +49,7 @@ export interface WrongQuestionRecord {
   correctAnswer: string;
   category: QuestionCategory;
   wrongCount: number;
+  reviewCorrectCount: number;
   lastUserAnswer: string;
   lastWrongAt: string;
 }

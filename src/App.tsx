@@ -24,7 +24,8 @@ import {
   getPracticeSessions,
   getTrainingStats,
   getWrongQuestions,
-  removeWrongQuestion,
+  isPersistentStorageAvailable,
+  markWrongQuestionCorrect,
   updateStatsWithAnswer,
 } from './utils/recordStorage';
 import { createQuestionQueue } from './utils/shuffle';
@@ -37,6 +38,7 @@ type Route =
   | { page: 'recordDetail'; id: string };
 
 const categories = Object.keys(categoryLabels) as QuestionCategory[];
+const QUIZ_QUESTION_LIMIT = 10;
 
 const parseHash = (): Route => {
   const hash = window.location.hash.replace(/^#\/?/, '');
@@ -82,6 +84,37 @@ const formatTime = (iso: string) =>
 
 const getQuestionDisplayAnswer = (question: Question) => question.displayAnswer ?? question.correctAnswer;
 
+const getActiveWrongQuestionsByCategory = (category: QuestionCategory) =>
+  getWrongQuestions()
+    .filter((item) => item.category === category)
+    .map((item) => getQuestionById(item.questionId))
+    .filter((question): question is Question => question !== undefined && question.category === category);
+
+const createTenQuestionQueue = (
+  questions: readonly Question[],
+  category: QuestionCategory,
+  mode: PracticeMode,
+) => {
+  if (questions.length === 0) {
+    return [];
+  }
+
+  if (mode === 'wrongReview') {
+    return createQuestionQueue(questions).slice(0, QUIZ_QUESTION_LIMIT);
+  }
+
+  const wrongQuestions = createQuestionQueue(getActiveWrongQuestionsByCategory(category)).slice(
+    0,
+    QUIZ_QUESTION_LIMIT,
+  );
+  const wrongQuestionIds = new Set(wrongQuestions.map((question) => question.id));
+  const fillQuestions = createQuestionQueue(
+    questions.filter((question) => !wrongQuestionIds.has(question.id)),
+  ).slice(0, Math.max(0, QUIZ_QUESTION_LIMIT - wrongQuestions.length));
+
+  return createQuestionQueue([...wrongQuestions, ...fillQuestions]);
+};
+
 const Header = ({ title, onBack }: { title: string; onBack?: () => void }) => (
   <header className="topbar">
     {onBack ? (
@@ -98,6 +131,7 @@ const Header = ({ title, onBack }: { title: string; onBack?: () => void }) => (
 
 const HomePage = () => {
   const [stats, setStats] = useState(getTrainingStats);
+  const [storageAvailable] = useState(isPersistentStorageAvailable);
 
   useEffect(() => {
     const refresh = () => setStats(getTrainingStats());
@@ -132,6 +166,12 @@ const HomePage = () => {
         </div>
       </section>
 
+      {!storageAvailable && (
+        <section className="storageWarning">
+          当前浏览器限制了本地存储，刷题记录可能无法在下次打开时保留。
+        </section>
+      )}
+
       <nav className="actionList" aria-label="首页导航">
         <button type="button" onClick={() => navigate('/categories/practice')}>
           <BookOpen size={22} />
@@ -165,14 +205,17 @@ const CategoryPage = ({ mode }: { mode: PracticeMode }) => {
     <main className="screen">
       <Header title={modeLabels[mode]} onBack={() => navigate('/')} />
       <section className="sectionIntro">
-        <p>每次都会打乱题目顺序，并刷完当前模块的全部题目。</p>
+        <p>每次随机练习 10 题；未清除的错题会优先混入，连续做对两遍后回到普通轮转。</p>
       </section>
 
       <div className="categoryList">
         {categories.map((category) => {
           const total = questionsByCategory[category].length;
           const wrongCount = wrongQuestions.filter((item) => item.category === category).length;
-          const count = mode === 'wrongReview' ? wrongCount : total;
+          const count =
+            mode === 'wrongReview'
+              ? Math.min(wrongCount, QUIZ_QUESTION_LIMIT)
+              : Math.min(total, QUIZ_QUESTION_LIMIT);
 
           return (
             <button
@@ -183,7 +226,7 @@ const CategoryPage = ({ mode }: { mode: PracticeMode }) => {
             >
               <div>
                 <strong>{categoryLabels[category]}</strong>
-                <span>{mode === 'wrongReview' ? `错题 ${wrongCount} 道` : `题库 ${count} 道`}</span>
+                <span>{mode === 'wrongReview' ? `本次最多 ${count} 道错题` : `本次 ${count} 题`}</span>
               </div>
               <ChevronRight size={18} />
             </button>
@@ -210,12 +253,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
 
   const sourceQuestions = useMemo(() => {
     if (mode === 'wrongReview') {
-      return getWrongQuestions()
-        .filter((item) => item.category === category)
-        .map((item) => getQuestionById(item.questionId))
-        .filter(
-          (question): question is Question => question !== undefined && question.category === category,
-        );
+      return getActiveWrongQuestionsByCategory(category);
     }
 
     return questionsByCategory[category];
@@ -263,7 +301,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
 
   const startQuiz = () => {
     const session = createPracticeSession(category, mode);
-    const nextQueue = createQuestionQueue(sourceQuestions);
+    const nextQueue = createTenQuestionQueue(sourceQuestions, category, mode);
 
     flushSync(() => {
       sessionRef.current = session;
@@ -335,7 +373,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
     updateStatsWithAnswer(isCorrect);
 
     if (isCorrect) {
-      removeWrongQuestion(currentQuestion.id);
+      markWrongQuestionCorrect(currentQuestion.id);
       setFeedback('correct');
       setSubmitted(true);
       timeoutRef.current = window.setTimeout(goNext, 450);
@@ -412,7 +450,7 @@ const QuizPage = ({ mode, category }: { mode: PracticeMode; category: QuestionCa
           <h2>{startLabel}</h2>
           <div className="finishStats">
             <span>{modeLabels[mode]}</span>
-            <span>全部 {sourceQuestions.length} 题</span>
+            <span>本次 {Math.min(sourceQuestions.length, QUIZ_QUESTION_LIMIT)} 题</span>
           </div>
         </section>
         <div className="footerActions">
